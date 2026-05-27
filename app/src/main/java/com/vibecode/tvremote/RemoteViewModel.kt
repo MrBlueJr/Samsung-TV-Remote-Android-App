@@ -34,7 +34,9 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
     init {
         currentTvIp = prefs.getString("saved_tv_ip", null)
         currentTvName = prefs.getString("saved_tv_name", "Paired Samsung TV")
-        val savedToken = prefs.getString("saved_tv_token", null)
+        val savedToken = currentTvIp?.let { ip ->
+            prefs.getString("saved_tv_token_$ip", null) ?: prefs.getString("saved_tv_token", null)
+        }
 
         tvClient = SamsungTvClient(
             appName = "VibeRemote",
@@ -61,7 +63,7 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
             .putString("saved_tv_name", tv.name)
             .apply()
 
-        val savedToken = prefs.getString("saved_tv_token", null)
+        val savedToken = prefs.getString("saved_tv_token_${tv.ip}", null) ?: prefs.getString("saved_tv_token", null)
         tvClient?.connect(tv.ip, savedToken)
     }
 
@@ -75,7 +77,7 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
             .putString("saved_tv_name", "Manual TV Connection")
             .apply()
             
-        val savedToken = prefs.getString("saved_tv_token", null)
+        val savedToken = prefs.getString("saved_tv_token_$ip", null) ?: prefs.getString("saved_tv_token", null)
         tvClient?.connect(ip, savedToken)
     }
 
@@ -85,14 +87,18 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun forgetTv() {
+        val ip = currentTvIp
         disconnect()
         currentTvIp = null
         currentTvName = null
-        prefs.edit()
+        val editor = prefs.edit()
             .remove("saved_tv_ip")
             .remove("saved_tv_name")
             .remove("saved_tv_token")
-            .apply()
+        if (ip != null) {
+            editor.remove("saved_tv_token_$ip")
+        }
+        editor.apply()
     }
 
     fun sendKey(key: String) {
@@ -127,7 +133,9 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private fun saveToken(token: String) {
+        val ip = currentTvIp ?: return
         prefs.edit()
+            .putString("saved_tv_token_$ip", token)
             .putString("saved_tv_token", token)
             .apply()
     }
